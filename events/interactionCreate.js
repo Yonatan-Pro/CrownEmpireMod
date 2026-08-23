@@ -18,17 +18,15 @@ module.exports = {
             }
         } 
         
-        // --- 2. HANDLE MODAL SUBMISSIONS ---
+        // --- 2. HANDLE GIVEAWAY MODALS ---
         else if (interaction.isModalSubmit() && interaction.customId === 'giveaway_modal') {
             const durationStr = interaction.fields.getTextInputValue('duration').toLowerCase().trim();
             const winnerCount = parseInt(interaction.fields.getTextInputValue('winners'));
             const prize = interaction.fields.getTextInputValue('prize');
 
-            // SMART TIME PARSER: Checks for m, h, or d
             let durationMinutes = parseInt(durationStr);
             if (durationStr.endsWith('h')) durationMinutes *= 60;
             else if (durationStr.endsWith('d')) durationMinutes *= (60 * 24);
-            // If they just type a number without a letter, it defaults to minutes
 
             if (isNaN(durationMinutes) || isNaN(winnerCount)) {
                 return interaction.reply({ content: '❌ Please enter valid numbers for time and winners!', flags: 64 });
@@ -37,12 +35,11 @@ module.exports = {
             const endsAt = new Date(Date.now() + durationMinutes * 60 * 1000);
             const unixTime = Math.floor(endsAt.getTime() / 1000);
             
-            // UPGRADED PREMIUM UI
             const giveawayEmbed = new EmbedBuilder()
                 .setAuthor({ name: '🎉 New Giveaway Hosted!' })
                 .setTitle(prize)
                 .setDescription(`Click the button below to enter!\n\n**Ends:** <t:${unixTime}:R> ( <t:${unixTime}:f> )\n**Hosted by:** ${interaction.user}\n**Entries:** 0\n**Winners:** ${winnerCount}`)
-                .setColor('#5865F2') // Discord Blurple
+                .setColor('#5865F2')
                 .setThumbnail(interaction.guild?.iconURL({ dynamic: true }) || null)
                 .setTimestamp(endsAt);
 
@@ -71,9 +68,8 @@ module.exports = {
             setTimeout(() => endGiveaway(client, newGiveaway._id), delay);
         }
 
-        // --- 2.5 HANDLE ANNOUNCEMENT MODALS ---
+        // --- 3. HANDLE ANNOUNCEMENT MODALS ---
         else if (interaction.isModalSubmit() && interaction.customId.startsWith('announce_modal_')) {
-            // Break apart our secret custom ID to get the data
             const customIdParts = interaction.customId.split('_');
             const channelId = customIdParts[2];
             const pingType = customIdParts[3];
@@ -81,12 +77,11 @@ module.exports = {
             const title = interaction.fields.getTextInputValue('title');
             const message = interaction.fields.getTextInputValue('message');
             
-            // Safely check for the image URL so it doesn't crash if Discord caches an old form
             let imageUrl = null;
             try {
                 imageUrl = interaction.fields.getTextInputValue('image_url');
             } catch (error) {
-                // Silently ignore if the field is missing
+                // Silently ignore if the field is missing due to caching
             }
 
             const targetChannel = await interaction.client.channels.fetch(channelId).catch(() => null);
@@ -95,38 +90,38 @@ module.exports = {
                 return interaction.reply({ content: '❌ Could not find the target channel.', flags: 64 });
             }
 
-            // UPGRADED PREMIUM UI
+            // UPGRADED "LIVELY" UI
             const announceEmbed = new EmbedBuilder()
                 .setAuthor({ 
-                    name: `${interaction.guild.name} Announcement`, 
+                    name: `${interaction.guild.name} • Official Announcement`, 
                     iconURL: interaction.guild.iconURL({ dynamic: true }) 
                 })
-                .setTitle(`📢 ${title}`)
-                .setDescription(message)
-                .setColor('#2B2D31') // Very sleek dark theme 
-                .setThumbnail(interaction.guild?.iconURL({ dynamic: true }) || null)
+                .setTitle(`✨ ${title}`)
+                .setDescription(`>>> ${message}\n\n`) 
+                .setColor('#FFD700') 
                 .setFooter({ 
-                    text: `Published by ${interaction.user.tag}`, 
+                    text: `Published by ${interaction.user.username}`, 
                     iconURL: interaction.user.displayAvatarURL({ dynamic: true }) 
                 })
                 .setTimestamp();
 
-            // Only add the image if they provided a valid link
+            // DYNAMIC BANNER SYSTEM
             if (imageUrl && (imageUrl.startsWith('http://') || imageUrl.startsWith('https://'))) {
                 announceEmbed.setImage(imageUrl);
+            } 
+            else if (interaction.guild.iconURL()) {
+                announceEmbed.setImage(interaction.guild.iconURL({ dynamic: true, size: 1024 }));
             }
 
-            // Figure out the ping text
             let pingContent = '';
             if (pingType === 'everyone') pingContent = '@everyone';
             else if (pingType === 'here') pingContent = '@here';
 
-            // Send it! (If pingContent is empty, it just sends the embed silently)
             await targetChannel.send({ content: pingContent, embeds: [announceEmbed] });
             await interaction.reply({ content: `✅ Premium announcement sent to <#${channelId}>!`, flags: 64 });
         }
 
-        // --- 3. HANDLE BUTTON CLICKS ---
+        // --- 4. HANDLE GIVEAWAY BUTTON CLICKS ---
         else if (interaction.isButton() && interaction.customId === 'enter_giveaway') {
             const giveaway = await Giveaway.findOne({ messageId: interaction.message.id });
             
@@ -138,14 +133,12 @@ module.exports = {
                 return interaction.reply({ content: 'You have already entered this giveaway! 🎉', flags: 64 });
             }
 
-            // Save user to database
             giveaway.entrants.push(interaction.user.id);
             await giveaway.save();
 
-            // Instantly update the Entries text on the embed
             const unixTime = Math.floor(giveaway.endsAt.getTime() / 1000);
             const updatedEmbed = EmbedBuilder.from(interaction.message.embeds[0])
-                .setDescription(`Ends: <t:${unixTime}:R> ( <t:${unixTime}:f> )\nHosted by: <@${giveaway.hostedBy}>\nEntries: **${giveaway.entrants.length}**\nWinners: **${giveaway.winnersCount}**`);
+                .setDescription(`Click the button below to enter!\n\n**Ends:** <t:${unixTime}:R> ( <t:${unixTime}:f> )\n**Hosted by:** <@${giveaway.hostedBy}>\n**Entries:** ${giveaway.entrants.length}\n**Winners:** ${giveaway.winnersCount}`);
 
             await interaction.message.edit({ embeds: [updatedEmbed] });
             await interaction.reply({ content: 'Entry confirmed! Good luck! 🍀', flags: 64 });
