@@ -10,6 +10,7 @@
   "type": "commonjs",
   "dependencies": {
     "discord.js": "^14.27.0",
+    "express": "^5.2.1",
     "mongoose": "^9.9.3"
   }
 }
