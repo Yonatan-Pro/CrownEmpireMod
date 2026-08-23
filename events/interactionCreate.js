@@ -73,27 +73,50 @@ module.exports = {
 
         // --- 2.5 HANDLE ANNOUNCEMENT MODALS ---
         else if (interaction.isModalSubmit() && interaction.customId.startsWith('announce_modal_')) {
-            // Extract the channel ID we hid in the customId
-            const channelId = interaction.customId.split('_')[2];
+            // Break apart our secret custom ID to get the data
+            const customIdParts = interaction.customId.split('_');
+            const channelId = customIdParts[2];
+            const pingType = customIdParts[3];
+
             const title = interaction.fields.getTextInputValue('title');
             const message = interaction.fields.getTextInputValue('message');
+            const imageUrl = interaction.fields.getTextInputValue('image_url');
 
             const targetChannel = await interaction.client.channels.fetch(channelId).catch(() => null);
 
             if (!targetChannel) {
-                return interaction.reply({ content: '❌ Could not find the target channel. It may have been deleted.', flags: 64 });
+                return interaction.reply({ content: '❌ Could not find the target channel.', flags: 64 });
             }
 
+            // UPGRADED PREMIUM UI
             const announceEmbed = new EmbedBuilder()
+                .setAuthor({ 
+                    name: `${interaction.guild.name} Announcement`, 
+                    iconURL: interaction.guild.iconURL({ dynamic: true }) 
+                })
                 .setTitle(`📢 ${title}`)
                 .setDescription(message)
-                .setColor('#E74C3C') // Bright Red for announcements
+                .setColor('#2B2D31') // Very sleek dark theme 
                 .setThumbnail(interaction.guild?.iconURL({ dynamic: true }) || null)
-                .setFooter({ text: `Announced by ${interaction.user.tag}` })
+                .setFooter({ 
+                    text: `Published by ${interaction.user.tag}`, 
+                    iconURL: interaction.user.displayAvatarURL({ dynamic: true }) 
+                })
                 .setTimestamp();
 
-            await targetChannel.send({ embeds: [announceEmbed] });
-            await interaction.reply({ content: `✅ Announcement successfully sent to <#${channelId}>!`, flags: 64 });
+            // Only add the image if they provided a valid link
+            if (imageUrl && (imageUrl.startsWith('http://') || imageUrl.startsWith('https://'))) {
+                announceEmbed.setImage(imageUrl);
+            }
+
+            // Figure out the ping text
+            let pingContent = '';
+            if (pingType === 'everyone') pingContent = '@everyone';
+            else if (pingType === 'here') pingContent = '@here';
+
+            // Send it! (If pingContent is empty, it just sends the embed silently)
+            await targetChannel.send({ content: pingContent, embeds: [announceEmbed] });
+            await interaction.reply({ content: `✅ Premium announcement sent to <#${channelId}>!`, flags: 64 });
         }
 
         // --- 3. HANDLE BUTTON CLICKS ---
