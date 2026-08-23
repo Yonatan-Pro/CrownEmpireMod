@@ -80,7 +80,14 @@ module.exports = {
 
             const title = interaction.fields.getTextInputValue('title');
             const message = interaction.fields.getTextInputValue('message');
-            const imageUrl = interaction.fields.getTextInputValue('image_url');
+            
+            // Safely check for the image URL so it doesn't crash if Discord caches an old form
+            let imageUrl = null;
+            try {
+                imageUrl = interaction.fields.getTextInputValue('image_url');
+            } catch (error) {
+                // Silently ignore if the field is missing
+            }
 
             const targetChannel = await interaction.client.channels.fetch(channelId).catch(() => null);
 
