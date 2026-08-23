@@ -71,6 +71,31 @@ module.exports = {
             setTimeout(() => endGiveaway(client, newGiveaway._id), delay);
         }
 
+        // --- 2.5 HANDLE ANNOUNCEMENT MODALS ---
+        else if (interaction.isModalSubmit() && interaction.customId.startsWith('announce_modal_')) {
+            // Extract the channel ID we hid in the customId
+            const channelId = interaction.customId.split('_')[2];
+            const title = interaction.fields.getTextInputValue('title');
+            const message = interaction.fields.getTextInputValue('message');
+
+            const targetChannel = await interaction.client.channels.fetch(channelId).catch(() => null);
+
+            if (!targetChannel) {
+                return interaction.reply({ content: '❌ Could not find the target channel. It may have been deleted.', flags: 64 });
+            }
+
+            const announceEmbed = new EmbedBuilder()
+                .setTitle(`📢 ${title}`)
+                .setDescription(message)
+                .setColor('#E74C3C') // Bright Red for announcements
+                .setThumbnail(interaction.guild?.iconURL({ dynamic: true }) || null)
+                .setFooter({ text: `Announced by ${interaction.user.tag}` })
+                .setTimestamp();
+
+            await targetChannel.send({ embeds: [announceEmbed] });
+            await interaction.reply({ content: `✅ Announcement successfully sent to <#${channelId}>!`, flags: 64 });
+        }
+
         // --- 3. HANDLE BUTTON CLICKS ---
         else if (interaction.isButton() && interaction.customId === 'enter_giveaway') {
             const giveaway = await Giveaway.findOne({ messageId: interaction.message.id });
