@@ -143,5 +143,32 @@ module.exports = {
             await interaction.message.edit({ embeds: [updatedEmbed] });
             await interaction.reply({ content: 'Entry confirmed! Good luck! 🍀', flags: 64 });
         }
+
+        // --- 5. HANDLE ROLE BUTTONS ---
+        else if (interaction.isButton() && interaction.customId.startsWith('role_toggle_')) {
+            // Extract the role ID from the button's customId
+            const roleId = interaction.customId.split('_')[2];
+            const role = interaction.guild.roles.cache.get(roleId);
+
+            if (!role) {
+                return interaction.reply({ content: '❌ This role no longer exists on the server.', flags: 64 });
+            }
+
+            // Safety Check: Make sure the bot's role is physically higher than the role it's trying to give
+            if (interaction.guild.members.me.roles.highest.position <= role.position) {
+                return interaction.reply({ content: '❌ My bot role is not high enough to give this out! Please go to Server Settings > Roles and drag my bot role above this one.', flags: 64 });
+            }
+
+            const member = await interaction.guild.members.fetch(interaction.user.id);
+
+            // Toggle logic: If they have it, remove it. If they don't, add it.
+            if (member.roles.cache.has(roleId)) {
+                await member.roles.remove(roleId);
+                return interaction.reply({ content: `✅ You removed the **${role.name}** role.`, flags: 64 });
+            } else {
+                await member.roles.add(roleId);
+                return interaction.reply({ content: `✅ You received the **${role.name}** role!`, flags: 64 });
+            }
+        }
     },
 };
