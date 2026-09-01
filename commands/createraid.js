@@ -34,8 +34,8 @@ module.exports = {
 
         const timeInput = new TextInputBuilder()
             .setCustomId('time')
-            .setLabel('Time until raid starts')
-            .setPlaceholder('Ex: 15m, 2h, 1d')
+            .setLabel('Time (Ex: 15m, OR 2026-09-01 15:30)')
+            .setPlaceholder('Use duration (2h) or exact format (YYYY-MM-DD HH:MM)')
             .setStyle(TextInputStyle.Short)
             .setRequired(true);
 

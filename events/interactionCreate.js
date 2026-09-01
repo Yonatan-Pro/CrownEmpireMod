@@ -133,34 +133,28 @@ module.exports = {
                 return interaction.reply({ content: '❌ Could not find the target channel.', flags: 64 });
             }
 
-            // The Smart Time Parser
-            let durationMinutes = parseInt(timeString);
-            if (timeString.endsWith('h')) durationMinutes *= 60;
-            else if (timeString.endsWith('d')) durationMinutes *= (60 * 24);
-
-            if (isNaN(durationMinutes)) {
-                return interaction.reply({ content: '❌ Please enter a valid time format (Ex: 30m, 2h, 1d)!', flags: 64 });
+           // The Advanced Time Parser
+            let raidTime;
+            
+            // Check if it is a relative time (like 15m, 2h, 1d)
+            if (/^\d+[mhd]$/i.test(timeString)) {
+                let durationMinutes = parseInt(timeString);
+                if (timeString.endsWith('h')) durationMinutes *= 60;
+                else if (timeString.endsWith('d')) durationMinutes *= (60 * 24);
+                raidTime = new Date(Date.now() + durationMinutes * 60 * 1000);
+            } 
+            // Otherwise, process it as an exact local date/time
+            else {
+                // Appends your specific timezone offset so Render reads it perfectly
+                raidTime = new Date(`${timeString} GMT+0300`);
             }
 
-            const raidTime = new Date(Date.now() + durationMinutes * 60 * 1000);
+            // Safety check in case of a typo
+            if (isNaN(raidTime.getTime())) {
+                return interaction.reply({ content: '❌ Invalid time! Use a duration (ex: `2h`) OR exact time (ex: `2026-09-01 15:30`).', flags: 64 });
+            }
+
             const unixTime = Math.floor(raidTime.getTime() / 1000);
-
-            const raidEmbed = new EmbedBuilder()
-                .setAuthor({ name: '⚔️ Raid Event Scheduled!' })
-                .setTitle(`Boss: ${boss}`)
-                .setDescription(`A new raid is starting soon! Gear up and get ready.`)
-                .addFields(
-                    { name: '🎟️ Tokens', value: `**${tokens}**`, inline: true },
-                    { name: '⏰ Starts At', value: `<t:${unixTime}:F>\n(<t:${unixTime}:R>)`, inline: true },
-                    { name: '👑 Hosted By', value: `${interaction.user}`, inline: true }
-                )
-                .setColor('#8B0000') // Dark Blood Red
-                .setThumbnail(interaction.guild?.iconURL({ dynamic: true }) || null)
-                .setFooter({ text: 'Crown Empire Raids' })
-                .setTimestamp();
-
-            await targetChannel.send({ embeds: [raidEmbed] });
-            await interaction.reply({ content: `✅ Raid announced in <#${channelId}>!`, flags: 64 });
         }
 
         // --- 4. HANDLE GIVEAWAY BUTTON CLICKS ---
