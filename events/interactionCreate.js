@@ -1,5 +1,6 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const Giveaway = require('../models/Giveaway');
+const Raid = require('../models/Raid');
 const { endGiveaway } = require('../utils/giveawayManager');
 
 module.exports = {
@@ -128,8 +129,6 @@ module.exports = {
             const rawTokens = interaction.fields.getTextInputValue('tokens');
             const timeString = interaction.fields.getTextInputValue('time').trim();
 
-            // Automatically calculate the number of bosses based on a 500-token cost
-            // The replace() function safely strips out any commas if you type "100,000"
             const tokenAmount = parseInt(rawTokens.replace(/,/g, '')); 
             const bossCount = Math.floor(tokenAmount / 500);
 
@@ -138,7 +137,6 @@ module.exports = {
                 return interaction.reply({ content: '❌ Could not find the target channel.', flags: 64 });
             }
 
-            // The Bulletproof Time Parser
             let raidTime;
             if (/^\d+[mhd]$/i.test(timeString)) {
                 let durationMinutes = parseInt(timeString);
@@ -146,7 +144,6 @@ module.exports = {
                 else if (timeString.endsWith('d') || timeString.endsWith('D')) durationMinutes *= (60 * 24);
                 raidTime = new Date(Date.now() + durationMinutes * 60 * 1000);
             } else {
-                // Safely structures your exact time into a machine-readable ISO format
                 const formattedString = timeString.replace(' ', 'T') + ':00+03:00';
                 raidTime = new Date(formattedString);
             }
@@ -165,15 +162,32 @@ module.exports = {
                     { name: '🎟️ Tokens Pool', value: `**${tokenAmount.toLocaleString()}**`, inline: true },
                     { name: '💀 Bosses Spawning', value: `**${bossCount.toLocaleString()}**`, inline: true },
                     { name: '⏰ Starts At', value: `<t:${unixTime}:F>\n(<t:${unixTime}:R>)`, inline: false },
-                    { name: '👑 Hosted By', value: `${interaction.user}`, inline: false }
+                    { name: '👑 Hosted By', value: `${interaction.user}`, inline: true },
+                    { name: '👥 Raiders (0)', value: 'None yet', inline: false } // NEW: The player list
                 )
                 .setColor('#8B0000') 
                 .setThumbnail(interaction.guild?.iconURL({ dynamic: true }) || null)
                 .setFooter({ text: 'Crown Empire Raids' })
                 .setTimestamp();
 
-            await targetChannel.send({ embeds: [raidEmbed] });
+            // NEW: The button
+            const joinButton = new ButtonBuilder()
+                .setCustomId('join_raid')
+                .setLabel("I'm Coming!")
+                .setEmoji('⚔️')
+                .setStyle(ButtonStyle.Success);
+
+            const row = new ActionRowBuilder().addComponents(joinButton);
+
+            const raidMessage = await targetChannel.send({ embeds: [raidEmbed], components: [row] });
             await interaction.reply({ content: `✅ Raid announced in <#${channelId}>!`, flags: 64 });
+
+            // NEW: Save to Database
+            await Raid.create({
+                messageId: raidMessage.id,
+                channelId: targetChannel.id,
+                participants: []
+            });
         }
 
         // --- 4. HANDLE GIVEAWAY BUTTON CLICKS ---
@@ -224,6 +238,51 @@ module.exports = {
                 await member.roles.add(roleId);
                 return interaction.reply({ content: `✅ You received the **${role.name}** role!`, flags: 64 });
             }
+        }
+        // --- 6. HANDLE RAID BUTTON CLICKS ---
+        else if (interaction.isButton() && interaction.customId === 'join_raid') {
+            const raid = await Raid.findOne({ messageId: interaction.message.id });
+            
+            if (!raid) {
+                return interaction.reply({ content: '❌ Could not find this raid in the database.', flags: 64 });
+            }
+
+            // Toggle logic: Add them if they aren't on the list, remove them if they are
+            let replyMessage = '';
+            if (raid.participants.includes(interaction.user.id)) {
+                raid.participants = raid.participants.filter(id => id !== interaction.user.id);
+                replyMessage = '✅ You have backed out of the raid.';
+            } else {
+                raid.participants.push(interaction.user.id);
+                replyMessage = '✅ You have successfully joined the raid!';
+            }
+            
+            await raid.save();
+
+            // Format the list of names 
+            const participantCount = raid.participants.length;
+            let participantsList = 'None yet';
+            
+            if (participantCount > 0) {
+                participantsList = raid.participants.map(id => `<@${id}>`).join(', ');
+                
+                // Discord blocks fields over 1024 characters, so this caps it safely for massive raids
+                if (participantsList.length > 1000) {
+                    participantsList = `**${participantCount} players are coming!** *(List too long to display)*`;
+                }
+            }
+
+            // Update the embed with the new list
+            const updatedEmbed = EmbedBuilder.from(interaction.message.embeds[0]);
+            const raidersFieldIndex = updatedEmbed.data.fields.findIndex(f => f.name.includes('👥 Raiders'));
+            
+            if (raidersFieldIndex !== -1) {
+                updatedEmbed.data.fields[raidersFieldIndex].name = `👥 Raiders (${participantCount})`;
+                updatedEmbed.data.fields[raidersFieldIndex].value = participantsList;
+            }
+
+            await interaction.message.edit({ embeds: [updatedEmbed] });
+            await interaction.reply({ content: replyMessage, flags: 64 });
         }
     },
 };
