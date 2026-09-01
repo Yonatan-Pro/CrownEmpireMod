@@ -1,55 +1,49 @@
-const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } = require('discord.js');
+const { SlashCommandBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, PermissionFlagsBits } = require('discord.js');
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('createraid')
-        .setDescription('Announce a new boss raid to the server')
-        .addStringOption(option => 
-            option.setName('boss')
-                .setDescription('The name of the boss being raided')
-                .setRequired(true))
-        .addIntegerOption(option => 
-            option.setName('tokens')
-                .setDescription('The number of tokens required or rewarded')
-                .setRequired(true))
-        .addStringOption(option => 
-            option.setName('time')
-                .setDescription('When it starts (Ex: 30m, 2h, 1d)')
+        .setDescription('Open the raid menu to announce a new boss raid')
+        .addChannelOption(option => 
+            option.setName('target_channel')
+                .setDescription('The channel where the raid will be posted')
                 .setRequired(true))
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
     async execute(interaction) {
-        const boss = interaction.options.getString('boss');
-        const tokens = interaction.options.getInteger('tokens');
-        const timeString = interaction.options.getString('time').toLowerCase().trim();
+        const targetChannel = interaction.options.getChannel('target_channel');
 
-        // Parse the time just like our giveaway command
-        let durationMinutes = parseInt(timeString);
-        if (timeString.endsWith('h')) durationMinutes *= 60;
-        else if (timeString.endsWith('d')) durationMinutes *= (60 * 24);
+        const modal = new ModalBuilder()
+            // Hide the channel ID in the custom ID just like the announcement command
+            .setCustomId(`raid_modal_${targetChannel.id}`)
+            .setTitle('Create Boss Raid');
 
-        if (isNaN(durationMinutes)) {
-            return interaction.reply({ content: '❌ Please enter a valid time format (Ex: 30m, 2h, 1d)!', flags: 64 });
-        }
+        const bossInput = new TextInputBuilder()
+            .setCustomId('boss')
+            .setLabel('Boss Name')
+            .setPlaceholder('Ex: The Ice Dragon')
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true);
 
-        const raidTime = new Date(Date.now() + durationMinutes * 60 * 1000);
-        const unixTime = Math.floor(raidTime.getTime() / 1000);
+        const tokensInput = new TextInputBuilder()
+            .setCustomId('tokens')
+            .setLabel('Tokens Required / Rewarded')
+            .setPlaceholder('Ex: 500')
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true);
 
-        const raidEmbed = new EmbedBuilder()
-            .setAuthor({ name: '⚔️ Raid Event Scheduled!' })
-            .setTitle(`Boss: ${boss}`)
-            .setDescription(`A new raid is starting soon! Gear up and get ready.`)
-            .addFields(
-                { name: '🎟️ Tokens', value: `**${tokens}**`, inline: true },
-                // The :F flag shows the full local date/time, the :R flag shows a live countdown
-                { name: '⏰ Starts At', value: `<t:${unixTime}:F>\n(<t:${unixTime}:R>)`, inline: true },
-                { name: '👑 Hosted By', value: `${interaction.user}`, inline: true }
-            )
-            .setColor('#8B0000') // Dark Blood Red
-            .setThumbnail(interaction.guild?.iconURL({ dynamic: true }) || null)
-            .setFooter({ text: 'Crown Empire Raids' })
-            .setTimestamp();
+        const timeInput = new TextInputBuilder()
+            .setCustomId('time')
+            .setLabel('Time until raid starts')
+            .setPlaceholder('Ex: 15m, 2h, 1d')
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true);
 
-        await interaction.reply({ embeds: [raidEmbed] });
+        const row1 = new ActionRowBuilder().addComponents(bossInput);
+        const row2 = new ActionRowBuilder().addComponents(tokensInput);
+        const row3 = new ActionRowBuilder().addComponents(timeInput);
+
+        modal.addComponents(row1, row2, row3);
+        await interaction.showModal(modal);
     }
 };
