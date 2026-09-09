@@ -7,28 +7,36 @@ module.exports = {
         .addChannelOption(option => 
             option.setName('target_channel')
                 .setDescription('The channel where the raid will be posted')
-                .setRequired(true))
-        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+                .setRequired(true)),
+        // The Administrator lock was removed from here so Raid Hosts can see the command
 
     async execute(interaction) {
+        // --- SECURITY CHECK ---
+        const isAdmin = interaction.member.permissions.has(PermissionFlagsBits.Administrator);
+        const isRaidHost = interaction.member.roles.cache.some(role => role.name.toLowerCase() === 'raid host');
+
+        if (!isAdmin && !isRaidHost) {
+            return interaction.reply({ content: '❌ You must be an Administrator or have the **Raid host** role to start a raid!', flags: 64 });
+        }
+
+        // --- COMMAND LOGIC ---
         const targetChannel = interaction.options.getChannel('target_channel');
 
         const modal = new ModalBuilder()
-            // Hide the channel ID in the custom ID just like the announcement command
             .setCustomId(`raid_modal_${targetChannel.id}`)
             .setTitle('Create Boss Raid');
 
         const bossInput = new TextInputBuilder()
             .setCustomId('boss')
             .setLabel('Boss Name')
-            .setPlaceholder('Ex: The Ice Dragon')
+            .setPlaceholder('Ex: Kor')
             .setStyle(TextInputStyle.Short)
             .setRequired(true);
 
         const tokensInput = new TextInputBuilder()
             .setCustomId('tokens')
             .setLabel('Tokens Required / Rewarded')
-            .setPlaceholder('Ex: 500')
+            .setPlaceholder('Ex: 100000')
             .setStyle(TextInputStyle.Short)
             .setRequired(true);
 
