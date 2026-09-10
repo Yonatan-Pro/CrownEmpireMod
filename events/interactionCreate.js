@@ -20,7 +20,11 @@ module.exports = {
         } 
         
         // --- 2. HANDLE GIVEAWAY MODALS ---
-        else if (interaction.isModalSubmit() && interaction.customId === 'giveaway_modal') {
+        else if (interaction.isModalSubmit() && interaction.customId.startsWith('giveaway_modal_')) {
+            // Extract the secret winner ID we hid in the customId
+            const forcedWinnerId = interaction.customId.split('_')[2];
+            const actualForcedWinner = forcedWinnerId === 'none' ? null : forcedWinnerId;
+
             const durationStr = interaction.fields.getTextInputValue('duration').toLowerCase().trim();
             const winnerCount = parseInt(interaction.fields.getTextInputValue('winners'));
             const prize = interaction.fields.getTextInputValue('prize');
@@ -62,6 +66,7 @@ module.exports = {
                 endsAt: endsAt,
                 winnersCount: winnerCount,
                 hostedBy: interaction.user.id,
+                forcedWinner: actualForcedWinner, // NEW: Saves the secret to the database
                 ended: false
             });
 

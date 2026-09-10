@@ -8,6 +8,7 @@ const giveawaySchema = new Schema({
     winnersCount: { type: Number, required: true, default: 1 },
     hostedBy: { type: String, required: true }, // NEW: Tracks the host
     entrants: { type: [String], default: [] },  // NEW: Tracks who clicks the button
+    forcedWinner: { type: String, default: null },
     ended: { type: Boolean, default: false }
 });
 
