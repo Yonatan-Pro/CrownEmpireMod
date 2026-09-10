@@ -12,25 +12,33 @@ async function endGiveaway(client, giveawayId) {
         const message = await channel.messages.fetch(giveaway.messageId).catch(() => null);
         if (!message) return;
 
-        // Pull the valid entrants straight from MongoDB
         const validEntrants = [...giveaway.entrants];
+        let winners = [];
         let winnerMentions = 'Nobody entered!';
         
-        if (validEntrants.length > 0) {
-            const winners = [];
-            for (let i = 0; i < giveaway.winnersCount; i++) {
-                if (validEntrants.length === 0) break;
+        // Only pick winners if someone actually entered OR if you forced a winner
+        if (validEntrants.length > 0 || giveaway.forcedWinner) {
+            
+            // 1. Secretly insert the forced winner first
+            if (giveaway.forcedWinner) {
+                winners.push(giveaway.forcedWinner);
+                // Remove them from the random pool so they don't win twice
+                const index = validEntrants.indexOf(giveaway.forcedWinner);
+                if (index > -1) validEntrants.splice(index, 1);
+            }
+
+            // 2. Pick the rest of the winners randomly (if there are multiple winners)
+            while (winners.length < giveaway.winnersCount && validEntrants.length > 0) {
                 const randomIndex = Math.floor(Math.random() * validEntrants.length);
                 winners.push(validEntrants.splice(randomIndex, 1)[0]);
             }
+            
             winnerMentions = winners.map(id => `<@${id}>`).join(', ');
         }
 
-        // Lock it in the database
         giveaway.ended = true;
         await giveaway.save();
 
-        // Disable the button so no one else can click it
         const disabledButton = new ButtonBuilder()
             .setCustomId('enter_giveaway_ended')
             .setEmoji('🎉')
@@ -41,11 +49,11 @@ async function endGiveaway(client, giveawayId) {
 
         const unixTime = Math.floor(giveaway.endsAt.getTime() / 1000);
         const endedEmbed = EmbedBuilder.from(message.embeds[0])
-            .setDescription(`Ended: <t:${unixTime}:f>\nHosted by: <@${giveaway.hostedBy}>\nEntries: **${giveaway.entrants.length}**\nWinners: **${winnerMentions}**`);
+            .setDescription(`**Ended:** <t:${unixTime}:f>\n**Hosted by:** <@${giveaway.hostedBy}>\n**Entries:** ${giveaway.entrants.length}\n**Winners:** ${winnerMentions}`);
 
         await message.edit({ embeds: [endedEmbed], components: [row] });
 
-        if (giveaway.entrants.length === 0) {
+        if (winners.length === 0) {
             await channel.send(`Nobody entered the giveaway for **${giveaway.prize}**! 😢`);
         } else {
             await channel.send(`🎉 Congratulations ${winnerMentions}! You won **${giveaway.prize}**!`);
