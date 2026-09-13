@@ -21,13 +21,22 @@ module.exports = {
         
         // --- 2. HANDLE GIVEAWAY MODALS ---
         else if (interaction.isModalSubmit() && interaction.customId.startsWith('giveaway_modal_')) {
-            // Extract the secret winner ID we hid in the customId
             const forcedWinnerId = interaction.customId.split('_')[2];
             const actualForcedWinner = forcedWinnerId === 'none' ? null : forcedWinnerId;
 
             const durationStr = interaction.fields.getTextInputValue('duration').toLowerCase().trim();
             const winnerCount = parseInt(interaction.fields.getTextInputValue('winners'));
             const prize = interaction.fields.getTextInputValue('prize');
+
+            // Safely grab the optional requirements
+            let reqMessages = 0;
+            let reqInvites = 0;
+            try {
+                const msgInput = interaction.fields.getTextInputValue('req_messages');
+                const invInput = interaction.fields.getTextInputValue('req_invites');
+                if (msgInput) reqMessages = parseInt(msgInput) || 0;
+                if (invInput) reqInvites = parseInt(invInput) || 0;
+            } catch (error) {}
 
             let durationMinutes = parseInt(durationStr);
             if (durationStr.endsWith('h')) durationMinutes *= 60;
@@ -37,13 +46,19 @@ module.exports = {
                 return interaction.reply({ content: '❌ Please enter valid numbers for time and winners!', flags: 64 });
             }
 
+            // Format the requirements text for the embed
+            let requirementsText = '';
+            if (reqMessages > 0) requirementsText += `\n💬 **Required Messages:** ${reqMessages}`;
+            if (reqInvites > 0) requirementsText += `\n🔗 **Required Invites:** ${reqInvites}`;
+            if (requirementsText !== '') requirementsText = `\n\n**REQUIREMENTS**${requirementsText}`;
+
             const endsAt = new Date(Date.now() + durationMinutes * 60 * 1000);
             const unixTime = Math.floor(endsAt.getTime() / 1000);
             
             const giveawayEmbed = new EmbedBuilder()
                 .setAuthor({ name: '🎉 New Giveaway Hosted!' })
                 .setTitle(prize)
-                .setDescription(`Click the button below to enter!\n\n**Ends:** <t:${unixTime}:R> ( <t:${unixTime}:f> )\n**Hosted by:** ${interaction.user}\n**Entries:** 0\n**Winners:** ${winnerCount}`)
+                .setDescription(`Click the button below to enter!${requirementsText}\n\n**Ends:** <t:${unixTime}:R> ( <t:${unixTime}:f> )\n**Hosted by:** ${interaction.user}\n**Entries:** 0\n**Winners:** ${winnerCount}`)
                 .setColor('#5865F2')
                 .setThumbnail(interaction.guild?.iconURL({ dynamic: true }) || null)
                 .setTimestamp(endsAt);
@@ -66,7 +81,9 @@ module.exports = {
                 endsAt: endsAt,
                 winnersCount: winnerCount,
                 hostedBy: interaction.user.id,
-                forcedWinner: actualForcedWinner, // NEW: Saves the secret to the database
+                forcedWinner: actualForcedWinner,
+                reqMessages: reqMessages, // Saves requirements to database
+                reqInvites: reqInvites,
                 ended: false
             });
 

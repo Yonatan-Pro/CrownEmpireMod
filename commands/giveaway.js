@@ -14,7 +14,6 @@ module.exports = {
         const targetWinner = interaction.options.getUser('target_winner');
         const winnerId = targetWinner ? targetWinner.id : 'none';
 
-        // We hide the secret winner's ID inside the modal data
         const modal = new ModalBuilder()
             .setCustomId(`giveaway_modal_${winnerId}`)
             .setTitle('Create Giveaway');
@@ -22,29 +21,43 @@ module.exports = {
         const durationInput = new TextInputBuilder()
             .setCustomId('duration')
             .setLabel('Duration (Ex: 10m, 2h, 1d)')
-            .setPlaceholder('m = minutes, h = hours, d = days')
             .setStyle(TextInputStyle.Short)
             .setRequired(true);
 
         const winnersInput = new TextInputBuilder()
             .setCustomId('winners')
             .setLabel('Number of Winners')
-            .setPlaceholder('Ex: 1')
             .setStyle(TextInputStyle.Short)
             .setRequired(true);
 
         const prizeInput = new TextInputBuilder()
             .setCustomId('prize')
             .setLabel('Giveaway Prize')
-            .setPlaceholder('Ex: 1,000,000 Coins!')
             .setStyle(TextInputStyle.Short)
             .setRequired(true);
+
+        // NEW: Optional Requirements
+        const reqMessagesInput = new TextInputBuilder()
+            .setCustomId('req_messages')
+            .setLabel('Required Messages (Optional)')
+            .setPlaceholder('Ex: 20 (Leave blank for none)')
+            .setStyle(TextInputStyle.Short)
+            .setRequired(false);
+
+        const reqInvitesInput = new TextInputBuilder()
+            .setCustomId('req_invites')
+            .setLabel('Required Invites (Optional)')
+            .setPlaceholder('Ex: 1 (Leave blank for none)')
+            .setStyle(TextInputStyle.Short)
+            .setRequired(false);
 
         const row1 = new ActionRowBuilder().addComponents(durationInput);
         const row2 = new ActionRowBuilder().addComponents(winnersInput);
         const row3 = new ActionRowBuilder().addComponents(prizeInput);
+        const row4 = new ActionRowBuilder().addComponents(reqMessagesInput);
+        const row5 = new ActionRowBuilder().addComponents(reqInvitesInput);
 
-        modal.addComponents(row1, row2, row3);
+        modal.addComponents(row1, row2, row3, row4, row5);
         await interaction.showModal(modal);
     }
 };

@@ -9,6 +9,8 @@ const giveawaySchema = new Schema({
     hostedBy: { type: String, required: true }, // NEW: Tracks the host
     entrants: { type: [String], default: [] },  // NEW: Tracks who clicks the button
     forcedWinner: { type: String, default: null },
+    reqMessages: { type: Number, default: 0 }, // NEW: Tracks required messages
+    reqInvites: { type: Number, default: 0 },  // NEW: Tracks required invites
     ended: { type: Boolean, default: false }
 });
 
